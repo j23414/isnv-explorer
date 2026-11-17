@@ -1,27 +1,19 @@
 library(shiny)
-library(tidyverse)
+library(dplyr)
+library(readr)
+library(ggplot2)
 library(plotly)
 library(DT)
-library(ggh4x)
 
 # ============================================================
 # DATA PROCESSING
 # ============================================================
 
-chromosome_order = c("PV062510|PB2", "PV074323|PB1", "PV062508|PA", "PV062513|HA",
-                       "PV062509|NP", "PV062511|NA", "PV062507|MP", "PV062512|NS")
-
 CHROM_GENE_ORDER <- c("PB2", "PB1", "PA", "HA", "MP", "NA", "NP", "NS")
 
-#setwd('/Users/jchang99/github/j23414/vcf-plots/')
-setwd('/Users/jchang99/Downloads/McCroneResults/')
-SNPFILE="data/expand_data_100000_0100.tsv"
-DEPTHFILE1="data/combined_depth.tsv"
-DEPTHFILE2="data/combined_depth2.tsv"
-
-SNPFILE="processed_variants.tsv"
-DEPTHFILE1="results-depth.tsv"
-DEPTHFILE2="results-depth.tsv"
+SNPFILE="data/mccrone/processed_variants.tsv"
+DEPTHFILE1="data/mccrone/results-depth.tsv"
+DEPTHFILE2="data/mccrone/results-depth.tsv"
 
 expand_data <- read_delim(SNPFILE, delim="\t", na=character()) %>%
   mutate(
@@ -126,138 +118,8 @@ plot_variants_and_depth <- function(samplename, depth_total, depth_filtered, sam
 
   p
 }
-#
-# pos_uniq <- filtered_depth_data %>%
-#   unique(.) %>%
-#   mutate(
-#     group = floor(POS/100)*100
-#   ) %>%
-#   group_by(Sample, CHROM, group) %>%
-#   summarize(
-#     average_depth = mean(Depth, na.rm = TRUE)
-#   )%>%
-#   ungroup(.)
-#
-#
-# ggplot(pos_uniq, aes(x=factor(group), y=average_depth)) +
-#   geom_boxplot() +
-#   scale_y_log10() +
-#   geom_hline(yintercept = mindepth,
-#              linetype = "dashed",
-#              color = "red") +
-#   geom_hline(yintercept = 100,
-#              linetype = "dashed",
-#              color = "blue") +
-#   facet_wrap(~CHROM, scale="free_x", nrow=2, dir="v") +
-#   force_panelsizes(cols = c(5, 4, 3, 2)) +
-#   labs(y="Average Depth in 100bp window per sample", x="Genomic position") +
-#   theme_bw() +
-#   theme(
-#     axis.text.x = element_text(angle = 90, vjust = 0.5,hjust = 1)
-#   )
-#
-# pos_uniq <- expand_data %>%
-#   select(Sample, CHROM, POS) %>%
-#   unique(.) %>%
-#   group_by(Sample, CHROM) %>%
-#   summarize(
-#     n=n()
-#   )%>%
-#   ungroup(.) %>%
-#   mutate(
-#     n = case_when(grepl("PB2", CHROM) ~ n/2.3,
-#                   grepl("PB1", CHROM) ~ n/2.3,
-#                   grepl("PA", CHROM) ~ n/2.1,
-#                   grepl("HA", CHROM) ~ n/1.7,
-#                   grepl("NP", CHROM) ~ n/1.4,
-#                   grepl("NA", CHROM) ~ n/1.4,
-#                   grepl("MP", CHROM) ~ n/0.9,
-#                   grepl("NS", CHROM) ~ n/0.7)
-#   )
-#
-#
-# ggplot(pos_uniq, aes(x=factor(CHROM), y=n)) +
-#   geom_boxplot() +
-#   force_panelsizes(cols = c(5, 4, 3, 2)) +
-#   labs(y="Number of iSNVs / kb / sample", x="Genomic position") +
-#   theme_bw() +
-#   theme(
-#     axis.text.x = element_text(angle = 90, vjust = 0.5,hjust = 1)
-#   )
 
 # ============================================================
-# Generate static visuals
-# ============================================================
-# samples = unique(expand_data$Sample)
-#
-# for (sample in samples ){}
-#   sample_variants <- expand_data %>%
-#     filter(Sample %in% sample)
-#
-#   sample_depth <- depth_data %>%
-#     filter(Sample == sample)
-#
-#   filtered_sample_depth <- filtered_depth_data %>%
-#     filter(Sample == sample)
-#
-#   p <- plot_variants_and_depth(
-#     sample,
-#     sample_depth,
-#     filtered_sample_depth,
-#     sample_variants,
-#     mindepth)
-#
-#   ggsave(filename=paste0("/Users/jchang99/Desktop/iSNV/Results_100000maxreads_0100mindepth/samples/",sample,".png", sep=""), plot=p, height=8, width=8)
-# }
-#
-# c_data <- expand_data %>%
-#   select(CHROM, mutation, IsSynonymous, minor_percentage) %>%
-#   subset(minor_percentage < 0.5) %>%
-# #  subset(minor_percentage > 0.03) %>%
-#   mutate(
-#     isnv_freq = case_when(
-#       minor_percentage > 0.39 ~ "(0.39, 0.5]",
-#       minor_percentage > 0.27 ~ "(0.27, 0.39]",
-#       minor_percentage > 0.15 ~ "(0.15, 0.27]",
-#       minor_percentage > 0.03 ~ "(0.03, 0.15]",
-#       TRUE ~ "(0.00, 0.03]"
-#     )
-#   ) %>%
-#   group_by(CHROM, IsSynonymous, isnv_freq) %>%
-#   summarize(
-#     n = n(),
-#     .groups = "drop"
-#   ) %>%
-# #  subset(isnv_freq != "(0, 0.03]") %>%
-#   complete(
-#     CHROM,
-#     IsSynonymous,
-#     isnv_freq,
-#     fill = list(n = 0)
-#   ) # %>%
-#   # mutate(
-#   #   n = case_when(
-#   #     grepl("PB2", CHROM) ~ n / 2.3,
-#   #     grepl("PB1", CHROM) ~ n / 2.3,
-#   #     grepl("PA", CHROM) ~ n / 2.1,
-#   #     grepl("HA", CHROM) ~ n / 1.7,
-#   #     grepl("NP", CHROM) ~ n / 1.4,
-#   #     grepl("NA", CHROM) ~ n / 1.4,
-#   #     grepl("MP", CHROM) ~ n / 0.9,
-#   #     grepl("NS", CHROM) ~ n / 0.7
-#   #   )
-#   # )
-#
-# ggplot(c_data, aes(x=isnv_freq, y=n, fill=IsSynonymous)) +
-#   geom_bar(stat = "identity", position = 'dodge') +
-#   facet_wrap(~ CHROM, scale="free_y") +
-#   theme_bw() +
-#   theme(
-#     axis.text.x = element_text(angle = 45, hjust=1)
-#   ) +
-#   labs(x="iSNV frequency", y="Frequency")
-
-# ======================================minor_percentage# ============================================================
 # UI
 # ============================================================
 
