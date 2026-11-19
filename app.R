@@ -15,7 +15,7 @@ SNPFILE="data/mccrone/processed_variants.tsv"
 DEPTHFILE1="data/mccrone/results-depth.tsv"
 DEPTHFILE2="data/mccrone/results-depth.tsv"
 
-expand_data <- read_delim(SNPFILE, delim="\t", na=character()) %>%
+snp_data <- read_delim(SNPFILE, delim="\t", na=character()) %>%
   mutate(
     CHROM_GENE=factor(CHROM_GENE, levels=CHROM_GENE_ORDER)
   )#%>%
@@ -70,6 +70,7 @@ mindepth=100
 #' )
 
 plot_variants_and_depth <- function(samplename, depth_total, depth_filtered, sample_variants, mindepth = 1000){
+  labels <- setNames(sample_variants$CHROM, sample_variants$CHROM_GENE)
   p <- ggplot() +
     # Depth
     geom_line(data = depth_filtered,
@@ -103,7 +104,7 @@ plot_variants_and_depth <- function(samplename, depth_total, depth_filtered, sam
       ),
       size = 2
     ) +
-    facet_wrap(~ CHROM_GENE, scales = "free", ncol = 2) +
+    facet_wrap(~ CHROM_GENE, scales = "free", ncol = 2, labeller = labeller(CHROM_GENE = labels)) +
     geom_hline(yintercept = mindepth,
                linetype = "dashed",
                color = "red") +
@@ -127,10 +128,12 @@ ui <- fluidPage(
   titlePanel("iSNV Explorer"),
   sidebarLayout(
     sidebarPanel(
+      width = 3,
+
       selectInput(
         "sample",
         "Sample",
-        choices = c("All", sort(unique(expand_data$Sample))),
+        choices = c("All", sort(unique(snp_data$Sample))),
         selected = "All"#,
         #multiple = TRUE
       ),
@@ -138,7 +141,7 @@ ui <- fluidPage(
       selectInput(
         "segment",
         "Segment",
-        choices = c("All", levels(expand_data$CHROM_GENE)),
+        choices = c("All", levels(snp_data$CHROM_GENE)),
         selected = "All",
         multiple = TRUE
       ),
@@ -148,25 +151,30 @@ ui <- fluidPage(
         "Mutation type",
         choices = c("Synonymous", "Non-Synonymous", "Intergenic"),
         selected = c("Synonymous", "Non-Synonymous", "Intergenic")
-      ),
+      )#,
 
-      sliderInput(
-        "min_freq",
-        "Minimum iSNV frequency",
-        min = 0,
-        max = 1.0,
-        value = 0,
-        step = 0.01
-      )
+      # sliderInput(
+      #   "min_freq",
+      #   "Minimum iSNV frequency",
+      #   min = 0,
+      #   max = 1.0,
+      #   value = 0,
+      #   step = 0.01
+      # )
     ),
 
     mainPanel(
+      width=9,
       h3("iSNVs across genome"),
-      plotlyOutput("genome_plot", height = "800px"),
-      h3("Mutational spectrum"),
-      plotlyOutput("spectrum_plot", height = "410px"),
-      h3("Variants"),
-      DTOutput("variant_table")
+      plotlyOutput(
+        "genome_plot",
+        width = "100%",
+        height = "calc(100vh - 180px)"
+        ) #, height = "800px"),
+      #h3("Mutational spectrum"),
+      #plotlyOutput("spectrum_plot", height = "410px"),
+      #h3("Variants"),
+      #DTOutput("variant_table")
     )
   ))
 
@@ -200,9 +208,9 @@ server <- function(input, output, session) {
 
 
 
-    x <- expand_data %>%
-      filter(IsSynonymous %in% input$mutation_type,
-             minor_percentage >= input$min_freq
+    x <- snp_data %>%
+      filter(IsSynonymous %in% input$mutation_type#,
+             #minor_percentage >= input$min_freq
              )
 
     if (!"All" %in% c(input$sample)) {
