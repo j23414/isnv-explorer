@@ -11,29 +11,22 @@ library(DT)
 
 CHROM_GENE_ORDER <- c("PB2", "PB1", "PA", "HA", "MP", "NA", "NP", "NS")
 
-SNPFILE="data/mccrone/processed_variants.tsv"
-DEPTHFILE1="data/mccrone/results-depth.tsv"
-DEPTHFILE2="data/mccrone/results-depth.tsv"
-
-snp_data <- read_delim(SNPFILE, delim="\t", na=character()) %>%
-  mutate(
-    CHROM_GENE=factor(CHROM_GENE, levels=CHROM_GENE_ORDER)
-  )#%>%
-  #subset(minor_percentage <= 0.5)
-
-
-depth_data <- read_delim(DEPTHFILE1, delim = "\t", na = character()) %>%
-  mutate(
-    CHROM_GENE = gsub(".*\\|", "", CHROM),
-    CHROM_GENE =factor(CHROM_GENE, levels=CHROM_GENE_ORDER),
-    Depth = case_when(Depth < 1 ~ 1, TRUE ~ Depth)
+DATASETS <- list(
+  "Malin (100 threshhold)" = list(
+    snpfile = "data/malin/sample_variants_results_100000_0100.tsv",
+    depthfile1 = "data/malin/combined_depth.tsv",
+    depthfile2 = "data/malin/combined_depth2.tsv"
+  ),
+  "Malin (1000 threshhold)" = list(
+    snpfile = "data/malin/sample_variants_results_100000_1000.tsv",
+    depthfile1 = "data/malin/combined_depth.tsv",
+    depthfile2 = "data/malin/combined_depth2.tsv"
+  ),
+  "McCrone" = list(
+    snpfile = "data/mccrone/processed_variants.tsv",
+    depthfile1 = "data/mccrone/results-depth.tsv",
+    depthfile2 = "data/mccrone/results-depth.tsv"
   )
-
-filtered_depth_data <- read_delim(DEPTHFILE2, delim = "\t", na = character()) %>%
-  mutate(
-    CHROM_GENE = gsub(".*\\|", "", CHROM),
-    CHROM_GENE =factor(CHROM_GENE, levels=CHROM_GENE_ORDER),
-    Depth = case_when(Depth < 1 ~ 1, TRUE ~ Depth)
 )
 
 mindepth=100
@@ -110,7 +103,7 @@ plot_variants_and_depth <- function(samplename, depth_total, depth_filtered, sam
                color = "red") +
     scale_y_log10() +
     labs(
-      title = paste("Depth Plot for Sample:", samplename),
+      title = paste("Sample:", samplename),
       x = "Position",
       y = "Depth",
       color = "Mutation type"
@@ -129,19 +122,23 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 3,
-
+      selectInput(
+        inputId = "dataset",
+        label = "Select Dataset:",
+        choices = names(DATASETS),
+        selected = "Malin (100 threshhold)"
+      ),
       selectInput(
         "sample",
         "Sample",
-        choices = c("All", sort(unique(snp_data$Sample))),
-        selected = "All"#,
-        #multiple = TRUE
+        choices = "All",
+        selected = "All"
       ),
 
       selectInput(
         "segment",
         "Segment",
-        choices = c("All", levels(snp_data$CHROM_GENE)),
+        choices = c("All", CHROM_GENE_ORDER),
         selected = "All",
         multiple = TRUE
       ),
@@ -165,7 +162,7 @@ ui <- fluidPage(
 
     mainPanel(
       width=9,
-      h3("iSNVs across genome"),
+      #h3(paste0("iSNV for dataset:", something)),
       plotlyOutput(
         "genome_plot",
         width = "100%",
@@ -185,9 +182,68 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   # ----------------------------------------------------------
+  # LOAD DATA
+  # ----------------------------------------------------------
+  selected_dataset <- reactive({
+
+    config <- DATASETS[[input$dataset]]
+
+    # Load SNP data
+    snp_data <- read_delim(config$snpfile, delim = "\t", na = character()) %>%
+      mutate(
+        CHROM_GENE = factor(CHROM_GENE,levels = CHROM_GENE_ORDER)
+      ) %>%
+      filter(minor_percentage <= 0.5)
+
+    # Load total depth
+    depth_data <- read_delim(config$depthfile1, delim = "\t", na = character()) %>%
+      mutate(
+        CHROM_GENE = factor(
+          gsub(".*\\|", "", CHROM),
+          levels = CHROM_GENE_ORDER
+        ),
+        Depth = case_when(Depth < 1 ~ 1, TRUE ~ Depth)
+      )
+
+    # Load filtered depth
+    filtered_depth_data <- read_delim(
+      config$depthfile2,
+      delim = "\t",
+      na = character()
+    ) %>%
+      mutate(
+        CHROM_GENE = factor(
+          gsub(".*\\|", "", CHROM),
+          levels = CHROM_GENE_ORDER
+        ),
+        Depth = case_when(Depth < 1 ~ 1, TRUE ~ Depth)
+      )
+
+    list(
+      snp_data = snp_data,
+      depth_data = depth_data,
+      filtered_depth_data = filtered_depth_data
+    )
+
+  })
+
+  observeEvent(selected_dataset(), {
+
+    snp_data <- selected_dataset()$snp_data
+
+    updateSelectInput(
+      session,
+      "sample",
+      choices = c("All", sort(unique(snp_data$Sample))),
+      selected = "All"
+    )
+
+
+
+  }, ignoreInit = FALSE)
+  # ----------------------------------------------------------
   # FILTER DATA
   # ----------------------------------------------------------
-
   sample_data <- reactive({
     selected_samples <- input$sample
     selected_segments <- input$segment
@@ -206,9 +262,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "segment", selected = selected_segments)
     }
 
-
-
-    x <- snp_data %>%
+    x <- selected_dataset()$snp_data %>%
       filter(IsSynonymous %in% input$mutation_type#,
              #minor_percentage >= input$min_freq
              )
@@ -285,11 +339,12 @@ server <- function(input, output, session) {
     # ----------------------------------------------------------
 
     sample_name <- single_sample()
+    dataset <- selected_dataset()
 
-    sample_depth <- depth_data %>%
+    sample_depth <- dataset$depth_data %>%
       filter(Sample == sample_name)
 
-    filtered_sample_depth <- filtered_depth_data %>%
+    filtered_sample_depth <- dataset$filtered_depth_data %>%
       filter(Sample == sample_name)
 
     # Use only variants from this sample
