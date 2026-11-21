@@ -22,7 +22,12 @@ DATASETS <- list(
     depthfile1 = "data/malin/combined_depth.tsv",
     depthfile2 = "data/malin/combined_depth2.tsv"
   ),
-  "McCrone" = list(
+  "McCrone Known SNVs" = list(
+    snpfile = "data/mccrone2016/mccrone2016-variants.tsv",
+    depthfile1 = "data/mccrone2016/mccrone2016-results-depth.tsv",
+    depthfile2 = "data/mccrone2016/mccrone2016-results-depth.tsv"
+  ),
+  "McCrone Household Study" = list(
     snpfile = "data/mccrone/processed_variants.tsv",
     depthfile1 = "data/mccrone/results-depth.tsv",
     depthfile2 = "data/mccrone/results-depth.tsv"
@@ -63,7 +68,7 @@ mindepth=100
 #' )
 
 plot_variants_and_depth <- function(samplename, depth_total, depth_filtered, sample_variants, mindepth = 1000){
-  labels <- setNames(sample_variants$CHROM, sample_variants$CHROM_GENE)
+  labels <- setNames(depth_total$CHROM, depth_total$CHROM_GENE)
   p <- ggplot() +
     # Depth
     geom_line(data = depth_filtered,
